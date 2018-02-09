@@ -1,0 +1,44 @@
+sudo: required
+
+language: python
+
+python:
+  - "3.5"
+
+env:
+  - DEVSTACK_WORKSPACE=/tmp DOCKER_COMPOSE_VERSION=1.13.0 SHALLOW_CLONE=1
+
+services:
+  - docker
+
+before_install:
+  # Upgrade Docker to the latest version
+  - docker version
+  - sudo apt-get update
+  - sudo apt-get -y -o Dpkg::Options::="--force-confnew" install docker-ce
+  - docker version
+
+  # Upgrade Docker Compose to the latest version
+  - docker-compose --version
+  - sudo rm /usr/local/bin/docker-compose
+  - curl -L https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-`uname -s`-`uname -m` > docker-compose
+  - chmod +x docker-compose
+  - sudo mv docker-compose /usr/local/bin
+  - docker-compose --version
+
+  - make requirements
+  - make dev.clone
+  - make pull
+
+script:
+  - make dev.provision
+  - make dev.up
+  - sleep 60 # LMS needs like 60 seconds to come up
+  - make healthchecks
+  - make validate-lms-volume
+  # Disable e2e-tests until either:
+  # * tests are less flaky
+  # * We have a way to test the infrastructure for testing but ignore the test results.
+  # See PLAT-1712
+  # - make e2e-tests
+  - make up-marketing-detached
